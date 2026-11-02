@@ -1,0 +1,66 @@
+<!doctype html><meta charset="utf-8"><title>Errand Agent Demo</title>
+<style>
+:root{--bg:#0e1116;--panel:#161b22;--line:#2a313c;--fg:#e6edf3;--mut:#8b949e;--blue:#58a6ff;--grn:#3fb950;--red:#f85149;--amb:#d29922;--vio:#bc8cff;--cy:#39c5cf}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:20px/1.4 -apple-system,Segoe UI,sans-serif;height:100vh;display:flex;flex-direction:column}
+header{display:flex;gap:14px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--line)}
+header h1{font-size:22px;margin:0 auto 0 0}select,button,input{font:inherit;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:7px 12px}
+button{cursor:pointer}button:hover{border-color:var(--blue)}button.warn{border-color:var(--amb);color:var(--amb)}
+main{flex:1;display:grid;grid-template-columns:1fr 1.15fr;min-height:0}
+section{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+h2{font-size:15px;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin:0;padding:10px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+#chat,#trace{flex:1;overflow:auto;padding:14px 18px}
+.m{max-width:92%;padding:10px 14px;border-radius:12px;margin:0 0 12px;white-space:pre-wrap}
+.u{background:#1f6feb;margin-left:auto}.a{background:var(--panel);border:1px solid var(--line)}
+.badge{display:inline-block;font-size:13px;letter-spacing:.06em;padding:2px 9px;border-radius:99px;border:1px solid var(--mut);color:var(--mut);margin-top:6px}
+.badge.DONE{color:var(--grn);border-color:var(--grn)}.badge.AWAITING_APPROVAL{color:var(--amb);border-color:var(--amb)}
+.badge.FAILED,.badge.LIMIT_EXHAUSTED{color:var(--red);border-color:var(--red)}.badge.EXECUTING,.badge.RECOVERING{color:var(--vio);border-color:var(--vio)}
+form{display:flex;gap:10px;padding:12px 18px;border-top:1px solid var(--line)}form input{flex:1}
+.r{border-left:5px solid var(--mut);background:var(--panel);border-radius:6px;padding:6px 12px;margin:0 0 7px;font-size:16px;word-break:break-word}
+.r .t{font-weight:600}.r .d{color:var(--mut);font:14px ui-monospace,Menlo,monospace;white-space:pre-wrap}
+.r.state_transition{border-color:var(--blue)}.r.tool_call{border-color:var(--cy)}.r.model_call{border-color:var(--vio)}.r.event{border-color:var(--amb)}
+.r.err{border-color:var(--red)}.r.ok{border-color:var(--grn)}
+.r.hl-recover{background:#12261a;border:2px solid var(--grn);border-left-width:8px}
+.r.hl-inject{background:#2d1517;border:2px solid var(--red);border-left-width:8px}
+.pill{font-size:12px;padding:1px 8px;border-radius:99px;margin-left:8px;background:var(--line);color:var(--fg)}
+#hl{font-size:14px;color:var(--grn);text-transform:none;letter-spacing:0}
+</style>
+<header><h1>Errand Agent &middot; live demo</h1>
+<select id="sc"></select><button id="rst">Reset scenario</button><button id="rs" class="warn">Restart agent process</button></header>
+<main>
+<section><h2><span>Chat</span><span id="ph"></span></h2><div id="chat"></div>
+<form id="f"><input id="in" autocomplete="off" placeholder="Type a message..." autofocus><button>Send</button></form></section>
+<section style="border:0"><h2><span>Trace (JSONL, live)</span><span id="hl"></span></h2><div id="trace"></div></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);let since=0,sug={},timedOut=false,tc=0;
+const post=(u,b)=>fetch(u,{method:'POST',body:JSON.stringify(b||{})}).then(r=>r.json());
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function add(cls,t,badge){const d=document.createElement('div');d.className='m '+cls;d.textContent=t;
+ if(badge){const b=document.createElement('div');b.className='badge '+badge;b.textContent=badge;d.appendChild(b)}
+ $('chat').appendChild(d);$('chat').scrollTop=1e9}
+const js=o=>o==null?'':(typeof o==='string'?o:JSON.stringify(o));
+function row(e){
+ let cls=e.type,title='',det='',x='';
+ if(e.type==='state_transition'){title=`${e.frm} → ${e.to}`;det=e.reason||''}
+ else if(e.type==='tool_call'){title=`${e.tool}(${js(e.args)})`;det=e.error?'ERROR: '+e.error:js(e.result);x=e.latency_ms+'ms';if(e.error)cls+=' err';
+  if(e.tool==='book'&&/timeout/i.test(e.error||'')){timedOut=true}
+  if(e.tool==='get_booking_status'&&timedOut&&/booked/.test(js(e.result))){cls+=' hl-recover';x+=' RECOVERED';timedOut=false;$('hl').textContent='timeout → status=booked → verified, no double-book'}}
+ else if(e.type==='model_call'){title='model: '+e.name;det=`${e.prompt_summary||''}\n→ ${e.response_summary||''}`;x=`${e.latency_ms}ms ${e.tokens_in}/${e.tokens_out} tok`}
+ else{title=e.kind;const{ts,seq,run_id,trace_id,span_id,type,kind,...rest}=e;det=js(rest);
+  if(/inject|flag/i.test(e.kind)){cls+=' hl-inject';x='FLAGGED'}else if(/approv|recover|resum/i.test(e.kind))cls+=' ok'}
+ const d=document.createElement('div');d.className='r '+cls;
+ d.innerHTML=`<span class="t">${esc(title)}</span>${x?`<span class="pill">${esc(x)}</span>`:''}<div class="d">${esc(det)}</div>`;
+ $('trace').appendChild(d)}
+async function poll(){try{const r=await fetch('/api/trace?since='+since).then(r=>r.json());
+ const tr=$('trace'),stick=tr.scrollHeight-tr.scrollTop-tr.clientHeight<80;
+ r.events.forEach(e=>{row(e);since=e._i+1});if(stick&&r.events.length)tr.scrollTop=1e9;
+ $('ph').innerHTML=`<span class="badge ${r.phase}">${r.phase}</span>`+(r.restarts?` <span class="badge">restarts: ${r.restarts}</span>`:'')}catch(e){}}
+async function reset(){const id=$('sc').value;await post('/api/reset',{scenario:id});since=0;timedOut=false;
+ $('chat').innerHTML='';$('trace').innerHTML='';$('hl').textContent='';$('in').placeholder='Try: '+(sug[id]||'');poll()}
+$('f').onsubmit=async ev=>{ev.preventDefault();const t=$('in').value.trim();if(!t)return;$('in').value='';add('u',t);
+ const r=await post('/api/chat',{text:t});add('a',r.agent||r.error,r.phase);poll()};
+$('rst').onclick=reset;$('sc').onchange=reset;
+$('rs').onclick=async()=>{await post('/api/restart');add('a','↻ Agent process restarted; state resumed from SQLite.');poll()};
+fetch('/api/scenarios').then(r=>r.json()).then(l=>{l.forEach(s=>{sug[s.id]=s.suggest;$('sc').add(new Option(s.label,s.id))});reset()});
+setInterval(poll,700);
+</script>

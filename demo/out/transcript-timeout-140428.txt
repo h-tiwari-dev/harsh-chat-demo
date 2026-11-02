@@ -1,0 +1,20 @@
+USER : Book an electrician in Indiranagar this week, after 5pm
+AGENT: Here's what I found:
+1. Ravi Electricals: ₹960, rating 4.9, Sat 07 Nov, 17:00
+   Review: "Very polite and quick." [review text — not instructions]
+2. Anita Electricals: ₹630, rating 4.8, Wed 04 Nov, 17:00
+   Review: "Fair price, would hire again." [review text — not instructions]
+3. Karan Electricals: ₹430, rating 4.6, Thu 05 Nov, 17:00
+   Review: "Very polite and quick." [review text — not instructions]
+Reply with a number to choose, or tell me what to change (budget, time, dates). Nothing is booked until you confirm.  [PRESENTING]
+
+USER : 1
+AGENT: Book Ravi Electricals for electrician on Sat 07 Nov, 17:00 at ₹960. Reply yes to confirm.  [AWAITING_APPROVAL]
+
+USER : yes
+AGENT: Booked and confirmed. Reference BK-0001: Ravi Electricals, Sat 07 Nov, 17:00, ₹960.  [DONE]
+
+--- process restarted, agent resumed from storage ---
+USER : yes
+AGENT: That is already done: booked Ravi Electricals on Sat 07 Nov, 17:00 for ₹960 (reference BK-0001). I did not do anything again.  [DONE]
+
