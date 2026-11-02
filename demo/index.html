@@ -51,10 +51,11 @@ function row(e){
  const d=document.createElement('div');d.className='r '+cls;
  d.innerHTML=`<span class="t">${esc(title)}</span>${x?`<span class="pill">${esc(x)}</span>`:''}<div class="d">${esc(det)}</div>`;
  $('trace').appendChild(d)}
-async function poll(){try{const r=await fetch('/api/trace?since='+since).then(r=>r.json());
- const tr=$('trace'),stick=tr.scrollHeight-tr.scrollTop-tr.clientHeight<80;
- r.events.forEach(e=>{row(e);since=e._i+1});if(stick&&r.events.length)tr.scrollTop=1e9;
- $('ph').innerHTML=`<span class="badge ${r.phase}">${r.phase}</span>`+(r.restarts?` <span class="badge">restarts: ${r.restarts}</span>`:'')}catch(e){}}
+let polling=false;
+async function poll(){if(polling)return;polling=true;try{const r=await fetch('/api/trace?since='+since).then(r=>r.json());
+ const tr=$('trace'),stick=tr.scrollHeight-tr.scrollTop-tr.clientHeight<800;
+ r.events.forEach(e=>{if(e._i<since)return;row(e);since=e._i+1});if(stick&&r.events.length)tr.scrollTop=1e9;
+ $('ph').innerHTML=`<span class="badge ${r.phase}">${r.phase}</span>`+(r.restarts?` <span class="badge">restarts: ${r.restarts}</span>`:'')}catch(e){}finally{polling=false}}
 async function reset(){const id=$('sc').value;await post('/api/reset',{scenario:id});since=0;timedOut=false;
  $('chat').innerHTML='';$('trace').innerHTML='';$('hl').textContent='';$('in').placeholder='Try: '+(sug[id]||'');poll()}
 $('f').onsubmit=async ev=>{ev.preventDefault();const t=$('in').value.trim();if(!t)return;$('in').value='';add('u',t);
